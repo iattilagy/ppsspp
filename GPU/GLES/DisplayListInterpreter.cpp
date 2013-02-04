@@ -281,8 +281,30 @@ void GLES_GPU::CopyDisplayToOutput() {
 
 u32 GLES_GPU::DrawSync(int mode)
 {
-	transformDraw_.Flush();
+	if(mode == 0) {
+		transformDraw_.Flush();
+	}
 	return GPUCommon::DrawSync(mode);
+}
+
+static void EnterClearMode(u32 data) {
+	bool colMask = (data >> 8) & 1;
+	bool alphaMask = (data >> 9) & 1;
+	bool updateZ = (data >> 10) & 1;
+	glstate.colorMask.set(colMask, colMask, colMask, alphaMask);
+	glstate.depthWrite.set(updateZ ? GL_TRUE : GL_FALSE);
+}
+
+static void LeaveClearMode() {
+	// We have to reset the following state as per the state of the command registers:
+	// Back face culling
+	// Texture map enable	(meh)
+	// Fogging
+	// Antialiasing
+	// Alpha test
+	glstate.colorMask.set(1,1,1,1);
+	glstate.depthWrite.set(!(gstate.zmsk & 1) ? GL_TRUE : GL_FALSE);
+	// dirtyshader?
 }
 
 void GLES_GPU::PreExecuteOp(u32 op, u32 diff) {
@@ -852,7 +874,6 @@ void GLES_GPU::ExecuteOp(u32 op, u32 diff) {
 
 	default:
 		GPUCommon::ExecuteOp(op, diff);
-		break;
 	}
 }
 
